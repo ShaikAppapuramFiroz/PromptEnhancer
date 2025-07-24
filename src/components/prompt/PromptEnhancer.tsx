@@ -1,4 +1,3 @@
-// AI prompt enhancement service
 const HUGGING_FACE_API_KEY = "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";
 const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base";
 const OPENAI_API_KEY = "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";
@@ -13,17 +12,17 @@ export type ModelType = 'huggingface' | 'openai';
 
 export async function enhancePrompt(prompt: string, model: ModelType = 'huggingface'): Promise<string> {
   if (model === 'openai') {
-    return enhancePromptWithOpenAI(prompt, OPENAI_API_KEY);
+    return enhancePromptWithOpenAI(prompt);
   }
   return enhancePromptWithHuggingFace(prompt);
 }
 
-async function enhancePromptWithOpenAI(prompt: string, apiKey: string): Promise<string> {
+async function enhancePromptWithOpenAI(prompt: string): Promise<string> {
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -31,11 +30,11 @@ async function enhancePromptWithOpenAI(prompt: string, apiKey: string): Promise<
         messages: [
           {
             role: 'system',
-            content: 'You are an expert prompt engineer. Your task is to enhance user prompts to make them more detailed, specific, and effective for AI assistants. Maintain the original intent while adding clarity, context, and actionable details. Return only the enhanced prompt without any explanations.'
+            content: 'You are an expert prompt engineer. Enhance prompts with clarity, detail, and context. Return only the enhanced prompt.'
           },
           {
             role: 'user',
-            content: `Enhance this prompt to make it more detailed, specific, and effective: "${prompt}"`
+            content: `Enhance this prompt: "${prompt}"`
           }
         ],
         max_tokens: 500,
@@ -48,7 +47,7 @@ async function enhancePromptWithOpenAI(prompt: string, apiKey: string): Promise<
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content?.trim() || prompt;
+    return data.choices?.[0]?.message?.content?.trim() || prompt;
   } catch (error) {
     console.error('OpenAI enhancement error:', error);
     return enhancePromptFallback(prompt);
@@ -57,7 +56,7 @@ async function enhancePromptWithOpenAI(prompt: string, apiKey: string): Promise<
 
 async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
   try {
-    const enhancementInstruction = `Enhance this prompt to make it more detailed, specific, and effective for AI assistants. Make it clearer and more actionable while maintaining the original intent: "${prompt}"`;
+    const enhancementInstruction = `Enhance this prompt to make it more detailed, specific, and effective for AI assistants: "${prompt}"`;
     
     const response = await fetch(HUGGING_FACE_API_URL, {
       method: 'POST',
@@ -73,7 +72,7 @@ async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
           do_sample: true,
           top_p: 0.9
         }
-      })
+      }),
     });
 
     if (!response.ok) {
@@ -81,7 +80,7 @@ async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
     }
 
     const data = await response.json();
-    
+
     let enhancedPrompt = '';
     if (Array.isArray(data) && data[0]?.generated_text) {
       enhancedPrompt = data[0].generated_text;
@@ -98,7 +97,7 @@ async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
 
     return cleanedPrompt || prompt;
   } catch (error) {
-    console.error('Prompt enhancement error:', error);
+    console.error('Hugging Face enhancement error:', error);
     return enhancePromptFallback(prompt);
   }
 }
@@ -111,7 +110,7 @@ function enhancePromptFallback(prompt: string): string {
     "Please provide step-by-step guidance on:",
     "I would like a detailed breakdown of:"
   ];
-  
+
   const randomEnhancement = enhancements[Math.floor(Math.random() * enhancements.length)];
   return `${randomEnhancement} ${prompt}. Please include examples, key points, and actionable insights where relevant.`;
 }
@@ -127,6 +126,6 @@ export async function generatePromptSuggestions(topic: string): Promise<string[]
     `Design a practical implementation plan for ${topic}`,
     `Evaluate the current trends in ${topic}`
   ];
-  
+
   return suggestions.slice(0, 5);
 }
