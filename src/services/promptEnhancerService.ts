@@ -1,4 +1,4 @@
-// Hugging Face prompt enhancement service
+// AI prompt enhancement service
 const HUGGING_FACE_API_KEY = "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";
 const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base";
 
@@ -8,7 +8,57 @@ export interface PromptEnhancement {
   confidence: number;
 }
 
-export async function enhancePrompt(prompt: string): Promise<string> {
+export type ModelType = 'huggingface' | 'openai';
+
+export async function enhancePrompt(prompt: string, model: ModelType = 'huggingface', openaiApiKey?: string): Promise<string> {
+  if (model === 'openai') {
+    return enhancePromptWithOpenAI(prompt, openaiApiKey);
+  }
+  return enhancePromptWithHuggingFace(prompt);
+}
+
+async function enhancePromptWithOpenAI(prompt: string, apiKey?: string): Promise<string> {
+  if (!apiKey) {
+    throw new Error('OpenAI API key is required');
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'chatgpt-4o-latest',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert prompt engineer. Your task is to enhance user prompts to make them more detailed, specific, and effective for AI assistants. Maintain the original intent while adding clarity, context, and actionable details. Return only the enhanced prompt without any explanations.'
+          },
+          {
+            role: 'user',
+            content: `Enhance this prompt to make it more detailed, specific, and effective: "${prompt}"`
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || prompt;
+  } catch (error) {
+    console.error('OpenAI enhancement error:', error);
+    return enhancePromptFallback(prompt);
+  }
+}
+
+async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
   try {
     const enhancementInstruction = `Enhance this prompt to make it more detailed, specific, and effective for AI assistants. Make it clearer and more actionable while maintaining the original intent: "${prompt}"`;
     

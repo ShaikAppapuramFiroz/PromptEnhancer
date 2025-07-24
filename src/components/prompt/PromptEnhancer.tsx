@@ -6,6 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Combobox } from '@/components/ui/combobox';
 import { toast } from 'sonner';
 import { 
   Copy, 
@@ -18,10 +23,14 @@ import {
   RefreshCw,
   Lightbulb,
   Brain,
-  Zap
+  Zap,
+  Settings,
+  Key
 } from 'lucide-react';
-import { enhancePrompt, generatePromptSuggestions } from '@/services/promptEnhancerService';
+import { enhancePrompt, generatePromptSuggestions, ModelType } from '@/services/promptEnhancerService';
 import { translateText, SUPPORTED_LANGUAGES, detectLanguage } from '@/services/translationService';
+import { UserProfile } from '@/components/profile/UserProfile';
+import { AIToolsDropdown } from '@/components/header/AIToolsDropdown';
 
 interface PromptEnhancerProps {
   user: any;
@@ -35,6 +44,9 @@ export default function PromptEnhancer({ user }: PromptEnhancerProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   const [detectedLanguage, setDetectedLanguage] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<ModelType>('huggingface');
+  const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [showProfilePopover, setShowProfilePopover] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -48,6 +60,11 @@ export default function PromptEnhancer({ user }: PromptEnhancerProps) {
   const handleEnhancePrompt = async () => {
     if (!originalPrompt.trim()) {
       toast.error('Please enter a prompt to enhance');
+      return;
+    }
+
+    if (selectedModel === 'openai' && !openaiApiKey.trim()) {
+      toast.error('Please enter your OpenAI API key to use ChatGPT-4o');
       return;
     }
 
@@ -66,8 +83,8 @@ export default function PromptEnhancer({ user }: PromptEnhancerProps) {
         promptToEnhance = await translateText(originalPrompt, 'en', detected);
       }
 
-      // Enhance the prompt using Hugging Face
-      const enhanced = await enhancePrompt(promptToEnhance);
+      // Enhance the prompt using selected model
+      const enhanced = await enhancePrompt(promptToEnhance, selectedModel, openaiApiKey);
 
       // If target language is not English, translate the result
       let finalPrompt = enhanced;
@@ -85,6 +102,15 @@ export default function PromptEnhancer({ user }: PromptEnhancerProps) {
       setIsTranslating(false);
     }
   };
+
+  const getInitials = (email: string) => {
+    return email.split('@')[0].slice(0, 2).toUpperCase();
+  };
+
+  const languageOptions = SUPPORTED_LANGUAGES.map(lang => ({
+    value: lang.code,
+    label: lang.name
+  }));
 
   const handleCopyToClipboard = async () => {
     if (!enhancedPrompt) {
@@ -132,10 +158,24 @@ export default function PromptEnhancer({ user }: PromptEnhancerProps) {
           </div>
           
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>{user?.email}</span>
-            </div>
+            <AIToolsDropdown />
+            
+            <Popover open={showProfilePopover} onOpenChange={setShowProfilePopover}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={user?.photoURL} alt="Profile" />
+                    <AvatarFallback className="bg-gradient-primary text-primary-foreground">
+                      {getInitials(user?.email || 'U')}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <UserProfile user={user} />
+              </PopoverContent>
+            </Popover>
+            
             <Button 
               variant="outline" 
               size="sm" 
@@ -174,29 +214,65 @@ export default function PromptEnhancer({ user }: PromptEnhancerProps) {
                   maxLength={1000}
                 />
                 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Languages className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Output Language:</span>
-                      <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                        <SelectTrigger className="w-40 bg-background/5 border-border/50">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SUPPORTED_LANGUAGES.map((lang) => (
-                            <SelectItem key={lang.code} value={lang.code}>
-                              {lang.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <Languages className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Output Language:</span>
+                        <Combobox
+                          options={languageOptions}
+                          value={selectedLanguage}
+                          onValueChange={setSelectedLanguage}
+                          placeholder="Select language..."
+                          searchPlaceholder="Search languages..."
+                          className="w-48 bg-background/5 border-border/50"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground">
+                      {originalPrompt.length}/1000
                     </div>
                   </div>
-                  
-                  <div className="text-sm text-muted-foreground">
-                    {originalPrompt.length}/1000
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <Brain className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">AI Model:</span>
+                        <Select value={selectedModel} onValueChange={(value: ModelType) => setSelectedModel(value)}>
+                          <SelectTrigger className="w-48 bg-background/5 border-border/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="huggingface">Hugging Face (Free)</SelectItem>
+                            <SelectItem value="openai">ChatGPT-4o Latest</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
+
+                  {selectedModel === 'openai' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="openai-key" className="text-sm text-muted-foreground flex items-center space-x-2">
+                        <Key className="h-4 w-4" />
+                        <span>OpenAI API Key</span>
+                      </Label>
+                      <Input
+                        id="openai-key"
+                        type="password"
+                        placeholder="sk-..."
+                        value={openaiApiKey}
+                        onChange={(e) => setOpenaiApiKey(e.target.value)}
+                        className="bg-background/5 border-border/50 focus:border-primary"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Your API key is only used for this session and never stored.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <Button 
