@@ -1,6 +1,6 @@
+// AI prompt enhancement service
 const HUGGING_FACE_API_KEY = "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";
 const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base";
-const OPENAI_API_KEY = "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";
 
 export interface PromptEnhancement {
   originalPrompt: string;
@@ -10,31 +10,35 @@ export interface PromptEnhancement {
 
 export type ModelType = 'huggingface' | 'openai';
 
-export async function enhancePrompt(prompt: string, model: ModelType = 'huggingface'): Promise<string> {
+export async function enhancePrompt(prompt: string, model: ModelType = 'huggingface', openaiApiKey?: string): Promise<string> {
   if (model === 'openai') {
-    return enhancePromptWithOpenAI(prompt);
+    return enhancePromptWithOpenAI(prompt, openaiApiKey);
   }
   return enhancePromptWithHuggingFace(prompt);
 }
 
-async function enhancePromptWithOpenAI(prompt: string): Promise<string> {
+async function enhancePromptWithOpenAI(prompt: string, apiKey?: string): Promise<string> {
+  if (!apiKey) {
+    throw new Error('OpenAI API key is required');
+  }
+
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'chatgpt-4o-latest',
         messages: [
           {
             role: 'system',
-            content: 'You are an expert prompt engineer. Enhance prompts with clarity, detail, and context. Return only the enhanced prompt.'
+            content: 'You are an expert prompt engineer. Your task is to enhance user prompts to make them more detailed, specific, and effective for AI assistants. Maintain the original intent while adding clarity, context, and actionable details. Return only the enhanced prompt without any explanations.'
           },
           {
             role: 'user',
-            content: `Enhance this prompt: "${prompt}"`
+            content: `Enhance this prompt to make it more detailed, specific, and effective: "${prompt}"`
           }
         ],
         max_tokens: 500,
@@ -47,7 +51,7 @@ async function enhancePromptWithOpenAI(prompt: string): Promise<string> {
     }
 
     const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || prompt;
+    return data.choices[0]?.message?.content || prompt;
   } catch (error) {
     console.error('OpenAI enhancement error:', error);
     return enhancePromptFallback(prompt);
@@ -56,7 +60,7 @@ async function enhancePromptWithOpenAI(prompt: string): Promise<string> {
 
 async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
   try {
-    const enhancementInstruction = `Enhance this prompt to make it more detailed, specific, and effective for AI assistants: "${prompt}"`;
+    const enhancementInstruction = `Enhance this prompt to make it more detailed, specific, and effective for AI assistants. Make it clearer and more actionable while maintaining the original intent: "${prompt}"`;
     
     const response = await fetch(HUGGING_FACE_API_URL, {
       method: 'POST',
@@ -72,7 +76,7 @@ async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
           do_sample: true,
           top_p: 0.9
         }
-      }),
+      })
     });
 
     if (!response.ok) {
@@ -80,7 +84,8 @@ async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
     }
 
     const data = await response.json();
-
+    
+    // Handle different response formats
     let enhancedPrompt = '';
     if (Array.isArray(data) && data[0]?.generated_text) {
       enhancedPrompt = data[0].generated_text;
@@ -90,19 +95,23 @@ async function enhancePromptWithHuggingFace(prompt: string): Promise<string> {
       throw new Error('Unexpected response format from Hugging Face API');
     }
 
+    // Clean up the response - remove the instruction part if it's included
     const cleanedPrompt = enhancedPrompt
       .replace(enhancementInstruction, '')
       .trim()
-      .replace(/^["']|["']$/g, '');
+      .replace(/^["']|["']$/g, ''); // Remove quotes if present
 
-    return cleanedPrompt || prompt;
+    return cleanedPrompt || prompt; // Fallback to original if cleaning results in empty string
   } catch (error) {
-    console.error('Hugging Face enhancement error:', error);
+    console.error('Prompt enhancement error:', error);
+    
+    // Fallback enhancement using simple text manipulation
     return enhancePromptFallback(prompt);
   }
 }
 
 function enhancePromptFallback(prompt: string): string {
+  // Simple fallback enhancement
   const enhancements = [
     "Please provide a detailed and comprehensive response to:",
     "I need you to thoroughly explain and elaborate on:",
@@ -110,7 +119,7 @@ function enhancePromptFallback(prompt: string): string {
     "Please provide step-by-step guidance on:",
     "I would like a detailed breakdown of:"
   ];
-
+  
   const randomEnhancement = enhancements[Math.floor(Math.random() * enhancements.length)];
   return `${randomEnhancement} ${prompt}. Please include examples, key points, and actionable insights where relevant.`;
 }
@@ -126,6 +135,6 @@ export async function generatePromptSuggestions(topic: string): Promise<string[]
     `Design a practical implementation plan for ${topic}`,
     `Evaluate the current trends in ${topic}`
   ];
-
-  return suggestions.slice(0, 5);
-}
+  
+  return suggestions.slice(0, 5); // Return top 5 suggestions
+} add open ai key to this code where i can access it through my web the key is "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"
