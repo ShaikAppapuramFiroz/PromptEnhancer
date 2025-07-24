@@ -1,5 +1,5 @@
 // AI prompt enhancement service
-const HUGGING_FACE_API_KEY = "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";
+const HUGGING_FACE_API_KEY = "your_api_key";
 const HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base";
 
 export interface PromptEnhancement {
