@@ -1,5 +1,5 @@
 // Google Translation API service
-const GOOGLE_TRANSLATE_API_KEY = "AIzaSyCkcjdx0ZMLVPXlv0J5o_E8K16ro23lNQU";
+const GOOGLE_TRANSLATE_API_KEY = "Your_key";
 
 export interface Language {
   code: string;
